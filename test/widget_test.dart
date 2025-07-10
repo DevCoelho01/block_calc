@@ -1,72 +1,30 @@
+// This is a basic Flutter widget test.
+//
+// To perform an interaction with a widget in your test, use the WidgetTester
+// utility in the flutter_test package. For example, you can send tap and scroll
+// gestures. You can also use WidgetTester to find child widgets in the widget
+// tree, read text, and verify that the values of widget properties are correct.
+
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:block_calc_release/main.dart';
 
 void main() {
-  runApp(const BlockCalcApp());
-}
+  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(const MyApp());
 
-class BlockCalcApp extends StatelessWidget {
-  const BlockCalcApp({super.key});
+    // Verify that our counter starts at 0.
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Block Calc',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
-      home: const BlockCalcHome(),
-    );
-  }
-}
+    // Tap the '+' icon and trigger a frame.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
 
-class BlockCalcHome extends StatefulWidget {
-  const BlockCalcHome({super.key});
-
-  @override
-  State<BlockCalcHome> createState() => _BlockCalcHomeState();
-}
-
-class _BlockCalcHomeState extends State<BlockCalcHome> {
-  final TextEditingController _tijolosController = TextEditingController();
-  double cimento = 0;
-  double areia = 0;
-
-  void calcular() {
-    final tijolos = double.tryParse(_tijolosController.text) ?? 0;
-    setState(() {
-      cimento = tijolos * 0.2;
-      areia = tijolos * 0.3;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Block Calc - Tijolos Ecológicos'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _tijolosController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Quantidade de Tijolos',
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: calcular,
-              child: const Text('Calcular'),
-            ),
-            const SizedBox(height: 20),
-            Text('Cimento necessário: ${cimento.toStringAsFixed(2)} sacos'),
-            Text('Areia necessária: ${areia.toStringAsFixed(2)} m³'),
-          ],
-        ),
-      ),
-    );
-  }
+    // Verify that our counter has incremented.
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+  });
 }

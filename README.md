@@ -1,4 +1,4 @@
-# block_calc
+# block_calc_release
 
 A new Flutter project.
 

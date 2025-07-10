@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf/pdf.dart'; // <-- ESSE É O IMPORT QUE FALTAVA!
-import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class TelaComodo extends StatefulWidget {
   @override
@@ -29,14 +30,10 @@ class _TelaComodoState extends State<TelaComodo> {
   }
 
   void _inicializarControladores() {
-    alturaParedes =
-        List.generate(numeroParedes, (_) => TextEditingController());
-    larguraParedes =
-        List.generate(numeroParedes, (_) => TextEditingController());
-    alturaJanelas =
-        List.generate(numeroJanelas, (_) => TextEditingController());
-    larguraJanelas =
-        List.generate(numeroJanelas, (_) => TextEditingController());
+    alturaParedes = List.generate(numeroParedes, (_) => TextEditingController());
+    larguraParedes = List.generate(numeroParedes, (_) => TextEditingController());
+    alturaJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
+    larguraJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
   }
 
   void _atualizarNumeroParedes(int valor) {
@@ -49,10 +46,8 @@ class _TelaComodoState extends State<TelaComodo> {
   void _atualizarNumeroJanelas(int valor) {
     setState(() {
       numeroJanelas = valor;
-      alturaJanelas =
-          List.generate(numeroJanelas, (_) => TextEditingController());
-      larguraJanelas =
-          List.generate(numeroJanelas, (_) => TextEditingController());
+      alturaJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
+      larguraJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
     });
   }
 
@@ -60,19 +55,15 @@ class _TelaComodoState extends State<TelaComodo> {
     double areaTotal = 0;
 
     for (int i = 0; i < numeroParedes; i++) {
-      double altura =
-          double.tryParse(alturaParedes[i].text.replaceAll(',', '.')) ?? 0;
-      double largura =
-          double.tryParse(larguraParedes[i].text.replaceAll(',', '.')) ?? 0;
+      double altura = double.tryParse(alturaParedes[i].text.replaceAll(',', '.')) ?? 0;
+      double largura = double.tryParse(larguraParedes[i].text.replaceAll(',', '.')) ?? 0;
       areaTotal += altura * largura;
     }
 
     double areaJanelas = 0;
     for (int i = 0; i < numeroJanelas; i++) {
-      double altura =
-          double.tryParse(alturaJanelas[i].text.replaceAll(',', '.')) ?? 0;
-      double largura =
-          double.tryParse(larguraJanelas[i].text.replaceAll(',', '.')) ?? 0;
+      double altura = double.tryParse(alturaJanelas[i].text.replaceAll(',', '.')) ?? 0;
+      double largura = double.tryParse(larguraJanelas[i].text.replaceAll(',', '.')) ?? 0;
       areaJanelas += altura * largura;
     }
 
@@ -109,8 +100,16 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
         },
       ),
     );
-    await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdf.save());
+
+    // Save the PDF to a file
+    final output = await getTemporaryDirectory();
+    final file = File('${output.path}/resultado_comodo.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    // Show a message to the user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF salvo em ${file.path}')),
+    );
   }
 
   @override
@@ -126,7 +125,6 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Número de paredes
               TextField(
                 decoration: InputDecoration(labelText: 'Quantas paredes?'),
                 keyboardType: TextInputType.number,
@@ -135,7 +133,6 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
                   _atualizarNumeroParedes(val);
                 },
               ),
-              // Paredes iguais?
               Row(
                 children: [
                   Text('Paredes iguais?'),
@@ -150,7 +147,6 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
                 ],
               ),
               SizedBox(height: 8),
-              // Campos de paredes
               ListView.builder(
                 shrinkWrap: true,
                 physics: NeverScrollableScrollPhysics(),
@@ -164,18 +160,14 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
                           Text('Parede ${index + 1}'),
                           TextField(
                             controller: alturaParedes[index],
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
-                            decoration:
-                                InputDecoration(labelText: 'Altura (m)'),
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(labelText: 'Altura (m)'),
                             onSubmitted: (_) => _calcular(),
                           ),
                           TextField(
                             controller: larguraParedes[index],
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
-                            decoration:
-                                InputDecoration(labelText: 'Largura (m)'),
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(labelText: 'Largura (m)'),
                             onSubmitted: (_) => _calcular(),
                           ),
                         ],
@@ -185,7 +177,6 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
                 },
               ),
               SizedBox(height: 8),
-              // Tem janela?
               Row(
                 children: [
                   Text('Tem janela?'),
@@ -226,18 +217,14 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
                             Text('Janela ${index + 1}'),
                             TextField(
                               controller: alturaJanelas[index],
-                              keyboardType: TextInputType.numberWithOptions(
-                                  decimal: true),
-                              decoration:
-                                  InputDecoration(labelText: 'Altura (m)'),
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(labelText: 'Altura (m)'),
                               onSubmitted: (_) => _calcular(),
                             ),
                             TextField(
                               controller: larguraJanelas[index],
-                              keyboardType: TextInputType.numberWithOptions(
-                                  decimal: true),
-                              decoration:
-                                  InputDecoration(labelText: 'Largura (m)'),
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(labelText: 'Largura (m)'),
                               onSubmitted: (_) => _calcular(),
                             ),
                           ],
