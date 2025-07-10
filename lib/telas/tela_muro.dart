@@ -1,57 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf/pdf.dart'; // <-- ESSE É O IMPORT QUE FALTAVA!
-import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+
 class TelaMuro extends StatefulWidget {
   @override
   State<TelaMuro> createState() => _TelaMuroState();
 }
 
 class _TelaMuroState extends State<TelaMuro> {
-  final TextEditingController _alturaController = TextEditingController();
-  final TextEditingController _comprimentoController = TextEditingController();
-  bool temJanela = false;
-  int numeroJanelas = 0;
-
-  List<TextEditingController> alturaJanelas = [];
-  List<TextEditingController> larguraJanelas = [];
-
+  TextEditingController alturaController = TextEditingController();
+  TextEditingController larguraController = TextEditingController();
   String resultado = '';
 
-  void _atualizarNumeroJanelas(int valor) {
-    setState(() {
-      numeroJanelas = valor;
-      alturaJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
-      larguraJanelas = List.generate(numeroJanelas, (_) => TextEditingController());
-    });
+  @override
+  void initState() {
+    super.initState();
+    alturaController.text = '2.8'; // Altura padrão
   }
 
   void _calcular() {
-    double altura = double.tryParse(_alturaController.text.replaceAll(',', '.')) ?? 0;
-    double comprimento = double.tryParse(_comprimentoController.text.replaceAll(',', '.')) ?? 0;
+    double altura = double.tryParse(alturaController.text.replaceAll(',', '.')) ?? 0;
+    double largura = double.tryParse(larguraController.text.replaceAll(',', '.')) ?? 0;
 
-    double areaMuro = altura * comprimento;
-
-    double areaJanelas = 0;
-    for (int i = 0; i < numeroJanelas; i++) {
-      double alturaJ = double.tryParse(alturaJanelas[i].text.replaceAll(',', '.')) ?? 0;
-      double larguraJ = double.tryParse(larguraJanelas[i].text.replaceAll(',', '.')) ?? 0;
-      areaJanelas += alturaJ * larguraJ;
-    }
-
-    double areaUtil = areaMuro - areaJanelas;
-
-    int tijolos = (areaUtil * 57).round();
+    double area = altura * largura;
+    int tijolos = (area * 57).round();
     double cimento = tijolos * 0.2;
     double areia = tijolos * 0.3;
-    double ferragem = areaUtil * 0.1; // Exemplo
-    double brita = areaUtil * 0.2;    // Exemplo novo
-    double canaletas = areaUtil * 0.05; // Exemplo
+    double ferragem = area * 0.1; // Exemplo
+    double brita = area * 0.2; // Exemplo
+    double canaletas = area * 0.05; // Exemplo
 
     setState(() {
       resultado = '''
-Área Util: ${areaUtil.toStringAsFixed(2)} m²
+Área: ${area.toStringAsFixed(2)} m²
 Tijolos: $tijolos un
 Cimento: ${cimento.toStringAsFixed(2)} sacos
 Areia: ${areia.toStringAsFixed(2)} m³
@@ -73,7 +57,16 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
         },
       ),
     );
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+
+    // Save the PDF to a file
+    final output = await getTemporaryDirectory();
+    final file = File('${output.path}/resultado_muro.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    // Show a message to the user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF salvo em ${file.path}')),
+    );
   }
 
   @override
@@ -90,75 +83,17 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextField(
-                controller: _alturaController,
-                decoration: InputDecoration(labelText: 'Altura do muro (m)'),
+                controller: alturaController,
+                decoration: InputDecoration(labelText: 'Altura (m)'),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 onSubmitted: (_) => _calcular(),
               ),
               TextField(
-                controller: _comprimentoController,
-                decoration: InputDecoration(labelText: 'Comprimento do muro (m)'),
+                controller: larguraController,
+                decoration: InputDecoration(labelText: 'Largura (m)'),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 onSubmitted: (_) => _calcular(),
               ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('Tem janela?'),
-                  Switch(
-                    value: temJanela,
-                    onChanged: (val) {
-                      setState(() {
-                        temJanela = val;
-                        if (!temJanela) {
-                          numeroJanelas = 0;
-                          alturaJanelas.clear();
-                          larguraJanelas.clear();
-                        }
-                      });
-                    },
-                  ),
-                ],
-              ),
-              if (temJanela) ...[
-                TextField(
-                  decoration: InputDecoration(labelText: 'Quantas janelas?'),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    int val = int.tryParse(value) ?? 0;
-                    _atualizarNumeroJanelas(val);
-                  },
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: numeroJanelas,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Column(
-                          children: [
-                            Text('Janela ${index + 1}'),
-                            TextField(
-                              controller: alturaJanelas[index],
-                              decoration: InputDecoration(labelText: 'Altura (m)'),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              onSubmitted: (_) => _calcular(),
-                            ),
-                            TextField(
-                              controller: larguraJanelas[index],
-                              decoration: InputDecoration(labelText: 'Largura (m)'),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              onSubmitted: (_) => _calcular(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
               SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _calcular,
@@ -167,7 +102,7 @@ Canaletas: ${canaletas.toStringAsFixed(2)} un
               SizedBox(height: 16),
               if (resultado.isNotEmpty) ...[
                 Card(
-                  color: Colors.blue.shade50,
+                  color: Colors.green.shade50,
                   child: Padding(
                     padding: EdgeInsets.all(12),
                     child: Text(resultado, style: TextStyle(fontSize: 16)),

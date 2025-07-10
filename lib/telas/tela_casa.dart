@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class TelaCasa extends StatefulWidget {
   @override
@@ -20,16 +22,13 @@ class _TelaCasaState extends State<TelaCasa> {
 
   String resultado = '';
 
-  // Função para atualizar a lista de controladores
   void _atualizarComodos(int qtd) {
     setState(() {
       numeroComodos = qtd;
       larguraControllers = List.generate(qtd, (_) => TextEditingController());
-      comprimentoControllers =
-          List.generate(qtd, (_) => TextEditingController());
+      comprimentoControllers = List.generate(qtd, (_) => TextEditingController());
       if (!peDireitoIgual) {
-        peDireitoControllers =
-            List.generate(qtd, (_) => TextEditingController());
+        peDireitoControllers = List.generate(qtd, (_) => TextEditingController());
       } else {
         peDireitoControllers.clear();
       }
@@ -41,16 +40,11 @@ class _TelaCasaState extends State<TelaCasa> {
     double perimetroTotal = 0;
 
     for (int i = 0; i < numeroComodos; i++) {
-      double largura =
-          double.tryParse(larguraControllers[i].text.replaceAll(',', '.')) ?? 0;
-      double comprimento = double.tryParse(
-              comprimentoControllers[i].text.replaceAll(',', '.')) ??
-          0;
+      double largura = double.tryParse(larguraControllers[i].text.replaceAll(',', '.')) ?? 0;
+      double comprimento = double.tryParse(comprimentoControllers[i].text.replaceAll(',', '.')) ?? 0;
       double altura = peDireitoIgual
           ? peDireito
-          : (double.tryParse(
-                  peDireitoControllers[i].text.replaceAll(',', '.')) ??
-              peDireito);
+          : (double.tryParse(peDireitoControllers[i].text.replaceAll(',', '.')) ?? peDireito);
 
       areaTotal += largura * comprimento;
       perimetroTotal += 2 * (largura + comprimento) * altura;
@@ -95,7 +89,16 @@ Telhado (${tipoTelhado}): ${telhado.toStringAsFixed(2)} m²
         },
       ),
     );
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+
+    // Save the PDF to a file
+    final output = await getTemporaryDirectory();
+    final file = File('${output.path}/resultado_casa.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    // Show a message to the user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF salvo em ${file.path}')),
+    );
   }
 
   @override
@@ -111,19 +114,17 @@ Telhado (${tipoTelhado}): ${telhado.toStringAsFixed(2)} m²
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Quantidade de cômodos
+              // Número de cômodos
               TextField(
                 decoration: InputDecoration(labelText: 'Quantos cômodos?'),
                 keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  int qtd = int.tryParse(val) ?? 0;
-                  _atualizarComodos(qtd);
+                onChanged: (value) {
+                  int val = int.tryParse(value) ?? 0;
+                  _atualizarComodos(val);
                 },
               ),
-
-              SizedBox(height: 8),
-
-              // Pé-direito igual para todos?
+              
+              // Pé-direito
               Row(
                 children: [
                   Text('Pé-direito igual?'),
@@ -134,55 +135,40 @@ Telhado (${tipoTelhado}): ${telhado.toStringAsFixed(2)} m²
                         peDireitoIgual = val;
                         if (peDireitoIgual) {
                           peDireitoControllers.clear();
-                        } else {
-                          peDireitoControllers = List.generate(
-                              numeroComodos, (_) => TextEditingController());
                         }
                       });
                     },
                   ),
                 ],
               ),
-
-              if (peDireitoIgual)
-                TextField(
-                  decoration: InputDecoration(labelText: 'Pé-direito (m)'),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (val) {
-                    peDireito =
-                        double.tryParse(val.replaceAll(',', '.')) ?? 2.8;
+              
+              if (!peDireitoIgual) ...[
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: numeroComodos,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            Text('Pé-direito Cômodo ${index + 1}'),
+                            TextField(
+                              controller: peDireitoControllers[index],
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(labelText: 'Altura (m)'),
+                              onSubmitted: (_) => _calcular(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
                 ),
-
-              SizedBox(height: 8),
-
-              // Telhado e piso
-              DropdownButton<String>(
-                value: tipoTelhado,
-                items: ['Barro', 'Sanduíche']
-                    .map((e) => DropdownMenuItem(child: Text(e), value: e))
-                    .toList(),
-                onChanged: (val) {
-                  setState(() {
-                    tipoTelhado = val!;
-                  });
-                },
-              ),
-              DropdownButton<String>(
-                value: tipoPiso,
-                items: ['Cerâmica', 'Porcelanato']
-                    .map((e) => DropdownMenuItem(child: Text(e), value: e))
-                    .toList(),
-                onChanged: (val) {
-                  setState(() {
-                    tipoPiso = val!;
-                  });
-                },
-              ),
-
-              SizedBox(height: 16),
-
-              // Campos de cada cômodo
+              ],
+              
+              // Campos dos cômodos
               ListView.builder(
                 shrinkWrap: true,
                 physics: NeverScrollableScrollPhysics(),
@@ -190,53 +176,76 @@ Telhado (${tipoTelhado}): ${telhado.toStringAsFixed(2)} m²
                 itemBuilder: (context, index) {
                   return Card(
                     child: Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(8),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Cômodo ${index + 1}',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Cômodo ${index + 1}'),
                           TextField(
                             controller: larguraControllers[index],
-                            decoration:
-                                InputDecoration(labelText: 'Largura (m)'),
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(labelText: 'Largura (m)'),
                             onSubmitted: (_) => _calcular(),
                           ),
                           TextField(
                             controller: comprimentoControllers[index],
-                            decoration:
-                                InputDecoration(labelText: 'Comprimento (m)'),
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(labelText: 'Comprimento (m)'),
                             onSubmitted: (_) => _calcular(),
                           ),
-                          if (!peDireitoIgual)
-                            TextField(
-                              controller: peDireitoControllers[index],
-                              decoration:
-                                  InputDecoration(labelText: 'Pé-direito (m)'),
-                              keyboardType: TextInputType.numberWithOptions(
-                                  decimal: true),
-                              onSubmitted: (_) => _calcular(),
-                            ),
                         ],
                       ),
                     ),
                   );
                 },
               ),
-
+              
+              // Tipos de material
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: tipoTelhado,
+                      decoration: InputDecoration(labelText: 'Tipo de Telhado'),
+                      items: ['Barro', 'Metal', 'Fibrocimento'].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          tipoTelhado = newValue!;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: tipoPiso,
+                      decoration: InputDecoration(labelText: 'Tipo de Piso'),
+                      items: ['Cerâmica', 'Porcelanato', 'Laminado'].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          tipoPiso = newValue!;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              
               SizedBox(height: 16),
-
               ElevatedButton(
                 onPressed: _calcular,
                 child: Text('Calcular'),
               ),
-
               SizedBox(height: 16),
-
               if (resultado.isNotEmpty) ...[
                 Card(
                   color: Colors.green.shade50,
